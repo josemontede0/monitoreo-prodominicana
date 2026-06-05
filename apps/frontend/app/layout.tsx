@@ -4,6 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'MonitoreoApp ProDominicana',
   description: 'Sistema de monitoreo de servicios digitales de ProDominicana',
+  icons: { icon: '/favicon.png' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

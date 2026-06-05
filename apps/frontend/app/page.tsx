@@ -1,8 +1,9 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useMonitor } from '../hooks/useMonitor';
-import { Activity, Plus, Trash2, RefreshCw, Wifi, WifiOff, CheckCircle, XCircle, Clock, Bell, ChevronRight, LogOut, User } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Wifi, WifiOff, CheckCircle, XCircle, Clock, Bell, ChevronRight, LogOut, User } from 'lucide-react';
 
 export default function Home() {
   const { services, alerts, connected, user, logout, addService, removeService, checkNow } = useMonitor();
@@ -28,7 +29,7 @@ export default function Home() {
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-red-700 p-2 rounded-lg"><Activity className="w-6 h-6 text-white" /></div>
+            <Image src="/favicon.png" alt="ProDominicana" width={40} height={40} className="rounded-lg" />
             <div>
               <h1 className="text-xl font-bold text-white">MonitoreoApp ProDominicana</h1>
               <p className="text-xs text-gray-400">Sistema de monitoreo en tiempo real</p>

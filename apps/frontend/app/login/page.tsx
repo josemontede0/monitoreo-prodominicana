@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Activity, Eye, EyeOff, LogIn } from 'lucide-react';
+import Image from 'next/image';
+import { Eye, EyeOff, LogIn } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function LoginPage() {
       const data = await res.json();
       localStorage.setItem('monitor_token', data.token);
       localStorage.setItem('monitor_user', JSON.stringify(data.user));
+      document.cookie = 'monitor_token=' + data.token + '; path=/; SameSite=Strict';
       router.push('/');
     } catch {
       setError('Error de conexion con el servidor');
@@ -40,8 +42,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center bg-red-700 p-4 rounded-2xl mb-4">
-            <Activity className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center bg-white p-4 rounded-2xl mb-4 shadow-lg">
+            <Image src="/favicon.png" alt="ProDominicana" width={56} height={56} />
           </div>
           <h1 className="text-2xl font-bold text-white">MonitoreoApp</h1>
           <p className="text-gray-400 text-sm mt-1">ProDominicana — Acceso interno</p>
@@ -49,7 +51,6 @@ export default function LoginPage() {
 
         <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
           <h2 className="text-sm font-semibold text-gray-300 mb-5">Inicia sesion con tu cuenta institucional</h2>
-
           <div className="grid gap-4">
             <div>
               <label className="text-xs text-gray-400 mb-1 block">Usuario</label>
@@ -62,7 +63,6 @@ export default function LoginPage() {
                 autoComplete="username"
               />
             </div>
-
             <div>
               <label className="text-xs text-gray-400 mb-1 block">Contrasena</label>
               <div className="relative">
@@ -80,13 +80,7 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
-
-            {error && (
-              <div className="bg-red-950 border border-red-800 rounded-lg px-4 py-2.5 text-red-300 text-xs">
-                {error}
-              </div>
-            )}
-
+            {error && <div className="bg-red-950 border border-red-800 rounded-lg px-4 py-2.5 text-red-300 text-xs">{error}</div>}
             <button
               onClick={handleLogin}
               disabled={loading}
@@ -96,10 +90,7 @@ export default function LoginPage() {
               {loading ? 'Verificando...' : 'Iniciar sesion'}
             </button>
           </div>
-
-          <p className="text-center text-xs text-gray-500 mt-5">
-            Usa tu usuario y contrasena de red institucional
-          </p>
+          <p className="text-center text-xs text-gray-500 mt-5">Usa tu usuario y contrasena de red institucional</p>
         </div>
       </div>
     </div>
