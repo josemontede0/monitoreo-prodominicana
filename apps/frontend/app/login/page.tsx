@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 
+const API = 'http://192.168.0.239:4000';
+
 export default function LoginPage() {
   const router = useRouter();
   const [form, setForm] = useState({ username: '', password: '' });
@@ -16,7 +18,7 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('http://localhost:4000/api/auth/login', {
+      const res = await fetch(API + '/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -30,7 +32,6 @@ export default function LoginPage() {
       const data = await res.json();
       localStorage.setItem('monitor_token', data.token);
       localStorage.setItem('monitor_user', JSON.stringify(data.user));
-      document.cookie = 'monitor_token=' + data.token + '; path=/; SameSite=Strict';
       router.push('/');
     } catch {
       setError('Error de conexion con el servidor');
@@ -46,7 +47,7 @@ export default function LoginPage() {
             <Image src="/favicon.png" alt="ProDominicana" width={56} height={56} />
           </div>
           <h1 className="text-2xl font-bold text-white">MonitoreoApp</h1>
-          <p className="text-gray-400 text-sm mt-1">ProDominicana — Acceso interno</p>
+          <p className="text-gray-400 text-sm mt-1">ProDominicana - Acceso interno</p>
         </div>
 
         <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">

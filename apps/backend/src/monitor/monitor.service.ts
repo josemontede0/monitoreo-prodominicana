@@ -30,7 +30,7 @@ export class MonitorService_ {
             port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
             path: parsed.pathname || '/',
             method: 'GET',
-            timeout: 10000,
+            timeout: 20000,
             rejectUnauthorized: false,
           },
           (res) => {

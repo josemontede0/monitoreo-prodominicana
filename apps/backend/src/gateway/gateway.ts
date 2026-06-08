@@ -2,7 +2,7 @@ import { WebSocketGateway, WebSocketServer, OnGatewayConnection, OnGatewayDiscon
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 
-@WebSocketGateway({ cors: { origin: 'http://localhost:3000', credentials: true } })
+@WebSocketGateway({ cors: { origin: true, credentials: true } })
 export class MonitorGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
   private readonly logger = new Logger('Gateway');
