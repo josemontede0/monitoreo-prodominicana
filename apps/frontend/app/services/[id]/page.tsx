@@ -4,6 +4,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, CheckCircle, XCircle, Clock, Activity, Shield, ShieldAlert, MapPin, Server, Edit2, Save, X } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
+const API = 'http://192.168.0.239:4000';
+
 interface CheckLog {
   timestamp: string;
   status: 'up' | 'down';
@@ -35,6 +37,10 @@ interface ServerInfo {
   tech: { server: string | null; poweredBy: string | null; cdn: string | null; technologies: string[]; allHeaders: Record<string, any> } | null;
 }
 
+function getToken() {
+  try { return localStorage.getItem('monitor_token'); } catch { return null; }
+}
+
 export default function ServiceDetail() {
   const { id } = useParams();
   const router = useRouter();
@@ -48,9 +54,23 @@ export default function ServiceDetail() {
   const [privateIpVal, setPrivateIpVal] = useState('');
   const [notesVal, setNotesVal] = useState('');
 
+  const authFetch = (url: string, opts: RequestInit = {}) => {
+    const token = getToken();
+    return fetch(url, {
+      ...opts,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(opts.headers ?? {}),
+        ...(token ? { Authorization: 'Bearer ' + token } : {}),
+      },
+    });
+  };
+
   const fetchService = async () => {
+    const token = getToken();
+    if (!token) { router.push('/login'); return; }
     try {
-      const res = await fetch('http://localhost:4000/api/services/' + id);
+      const res = await authFetch(API + '/api/services/' + id);
       const data = await res.json();
       setService(data);
       setPrivateIpVal(data.privateIp ?? '');
@@ -62,7 +82,7 @@ export default function ServiceDetail() {
   const fetchServerInfo = async () => {
     setLoadingInfo(true);
     try {
-      const res = await fetch('http://localhost:4000/api/services/' + id + '/server-info');
+      const res = await authFetch(API + '/api/services/' + id + '/server-info');
       const data = await res.json();
       setServerInfo(data);
     } catch {}
@@ -70,9 +90,8 @@ export default function ServiceDetail() {
   };
 
   const saveField = async (field: 'privateIp' | 'notes', value: string) => {
-    await fetch('http://localhost:4000/api/services/' + id, {
+    await authFetch(API + '/api/services/' + id, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [field]: value }),
     });
     setService(prev => prev ? { ...prev, [field]: value } : prev);
@@ -80,18 +99,40 @@ export default function ServiceDetail() {
     if (field === 'notes') setEditingNotes(false);
   };
 
-  useEffect(() => { fetchService(); const t = setInterval(fetchService, 10000); return () => clearInterval(t); }, [id]);
-  useEffect(() => { if (activeTab === 'server' && !serverInfo) fetchServerInfo(); }, [activeTab]);
+  useEffect(() => {
+    const token = getToken();
+    if (!token) { router.push('/login'); return; }
+    fetchService();
+    const t = setInterval(fetchService, 10000);
+    return () => clearInterval(t);
+  }, [id]);
 
-  if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="text-gray-400 flex items-center gap-3"><Clock className="w-5 h-5 animate-spin" /> Cargando...</div></div>;
-  if (!service) return <div className="min-h-screen bg-gray-950 flex items-center justify-center"><p className="text-gray-400">Servicio no encontrado</p></div>;
+  useEffect(() => {
+    if (activeTab === 'server' && !serverInfo) fetchServerInfo();
+  }, [activeTab]);
+
+  if (loading) return (
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="text-gray-400 flex items-center gap-3">
+        <Clock className="w-5 h-5 animate-spin" /> Cargando...
+      </div>
+    </div>
+  );
+
+  if (!service) return (
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <p className="text-gray-400">Servicio no encontrado</p>
+    </div>
+  );
 
   const logs = service.logs ?? [];
   const chartData = logs.slice(-120).map(l => ({
     time: new Date(l.timestamp).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' }),
-    response: l.response, uptime: l.status === 'up' ? 100 : 0, httpCode: l.httpCode,
+    response: l.response,
+    uptime: l.status === 'up' ? 100 : 0,
+    httpCode: l.httpCode,
   }));
-  const downEvents = logs.filter((l, i) => l.status === 'down' && (i === 0 || logs[i-1].status === 'up'));
+  const downEvents = logs.filter((l, i) => l.status === 'down' && (i === 0 || logs[i - 1].status === 'up'));
   const validLogs = logs.filter(l => l.response);
   const avgResponse = validLogs.length > 0 ? Math.round(validLogs.reduce((a, l) => a + (l.response ?? 0), 0) / validLogs.length) : null;
   const minResponse = validLogs.length > 0 ? Math.min(...validLogs.map(l => l.response ?? 0)) : null;
@@ -220,7 +261,7 @@ export default function ServiceDetail() {
 
             {activeTab === 'logs' && (
               <div>
-                <h3 className="text-sm text-gray-400 mb-4">Log de eventos — {logs.length} registros</h3>
+                <h3 className="text-sm text-gray-400 mb-4">Log de eventos - {logs.length} registros</h3>
                 <div className="overflow-auto max-h-96 rounded-lg border border-gray-800">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-800 sticky top-0">
@@ -320,48 +361,7 @@ export default function ServiceDetail() {
                     ) : <p className="text-gray-500 text-sm">{loadingInfo ? 'Consultando...' : 'No disponible'}</p>}
                   </div>
 
-                  {serverInfo?.tech && (
-                    <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-                      <div className="flex items-center gap-2 mb-4">
-                        <Activity className="w-4 h-4 text-purple-400" />
-                        <h4 className="text-sm font-semibold text-white">Tecnologia detectada</h4>
-                      </div>
-                      <div className="grid gap-2">
-                        {serverInfo.tech.technologies.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mb-2">
-                            {serverInfo.tech.technologies.map((t, i) => (
-                              <span key={i} className="bg-purple-900/50 text-purple-300 text-xs px-2 py-1 rounded-full border border-purple-700">{t}</span>
-                            ))}
-                          </div>
-                        )}
-                        {[
-                          { label: 'Servidor', value: serverInfo.tech.server ?? 'No expuesto' },
-                          { label: 'Powered By', value: serverInfo.tech.poweredBy ?? 'No expuesto' },
-                          { label: 'CDN / Proxy', value: serverInfo.tech.cdn ?? 'No detectado' },
-                        ].map((item, i) => (
-                          <div key={i} className="flex justify-between items-center py-2 border-b border-gray-700 last:border-0">
-                            <span className="text-gray-400 text-xs">{item.label}</span>
-                            <span className="text-white text-xs font-mono">{item.value}</span>
-                          </div>
-                        ))}
-                        {Object.entries(serverInfo.tech.allHeaders).length > 0 && (
-                          <div className="mt-2">
-                            <p className="text-gray-400 text-xs mb-2">Headers HTTP relevantes</p>
-                            <div className="bg-gray-900 rounded-lg p-3 space-y-1">
-                              {Object.entries(serverInfo.tech.allHeaders).map(([k, v], i) => (
-                                <div key={i} className="flex gap-2 text-xs">
-                                  <span className="text-blue-400 font-mono whitespace-nowrap">{k}:</span>
-                                  <span className="text-gray-300 font-mono truncate">{String(v)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
+                  <div className="col-span-2 bg-gray-800 rounded-xl p-5 border border-gray-700">
                     <div className="flex items-center gap-2 mb-4">
                       {serverInfo?.ssl?.valid ? <Shield className="w-4 h-4 text-green-400" /> : <ShieldAlert className="w-4 h-4 text-red-400" />}
                       <h4 className="text-sm font-semibold text-white">Certificado SSL</h4>
@@ -372,16 +372,16 @@ export default function ServiceDetail() {
                       )}
                     </div>
                     {serverInfo?.ssl ? (
-                      <div className="grid gap-2">
+                      <div className="grid grid-cols-4 gap-4">
                         {[
                           { label: 'Sujeto', value: serverInfo.ssl.subject },
                           { label: 'Emisor', value: serverInfo.ssl.issuer },
                           { label: 'Valido desde', value: new Date(serverInfo.ssl.validFrom).toLocaleDateString('es-DO') },
                           { label: 'Expira', value: new Date(serverInfo.ssl.validTo).toLocaleDateString('es-DO') },
                         ].map((item, i) => (
-                          <div key={i} className="flex justify-between items-center py-2 border-b border-gray-700 last:border-0">
-                            <span className="text-gray-400 text-xs">{item.label}</span>
-                            <span className="text-white text-xs font-mono">{item.value}</span>
+                          <div key={i} className="bg-gray-700/50 rounded-lg p-3">
+                            <p className="text-gray-400 text-xs mb-1">{item.label}</p>
+                            <p className="text-white text-xs font-medium truncate">{item.value}</p>
                           </div>
                         ))}
                       </div>
@@ -396,7 +396,7 @@ export default function ServiceDetail() {
                   </div>
                   {editingNotes ? (
                     <div className="grid gap-2">
-                      <textarea value={notesVal} onChange={e => setNotesVal(e.target.value)} placeholder="Rack, ubicacion fisica, contacto del administrador, credenciales de acceso..." className="bg-gray-700 text-white text-sm px-3 py-2 rounded-lg border border-gray-600 focus:border-red-500 outline-none w-full h-28 resize-none" />
+                      <textarea value={notesVal} onChange={e => setNotesVal(e.target.value)} placeholder="Rack, ubicacion fisica, contacto del administrador..." className="bg-gray-700 text-white text-sm px-3 py-2 rounded-lg border border-gray-600 focus:border-red-500 outline-none w-full h-28 resize-none" />
                       <div className="flex gap-2">
                         <button onClick={() => saveField('notes', notesVal)} className="flex items-center gap-1 bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs"><Save className="w-3 h-3" /> Guardar</button>
                         <button onClick={() => setEditingNotes(false)} className="flex items-center gap-1 bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg text-xs"><X className="w-3 h-3" /> Cancelar</button>

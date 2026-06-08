@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useRouter } from 'next/navigation';
 
+const API = 'http://192.168.0.239:4000';
+
 export interface MonitorService {
   id: number;
   name: string;
@@ -31,22 +33,17 @@ export interface User {
   department: string;
 }
 
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('monitor_token');
-}
-
-function getUser(): User | null {
-  if (typeof window === 'undefined') return null;
-  try { return JSON.parse(localStorage.getItem('monitor_user') ?? 'null'); } catch { return null; }
-}
-
 export function useMonitor() {
   const [services, setServices] = useState<MonitorService[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [connected, setConnected] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [ready, setReady] = useState(false);
   const router = useRouter();
+
+  const getToken = () => {
+    try { return localStorage.getItem('monitor_token'); } catch { return null; }
+  };
 
   const authFetch = async (url: string, opts: RequestInit = {}) => {
     const token = getToken();
@@ -58,31 +55,32 @@ export function useMonitor() {
         ...(token ? { Authorization: 'Bearer ' + token } : {}),
       },
     });
-    if (res.status === 401) {
-      localStorage.removeItem('monitor_token');
-      localStorage.removeItem('monitor_user');
-      router.push('/login');
-    }
     return res;
   };
 
   const logout = () => {
-    localStorage.removeItem('monitor_token');
-    localStorage.removeItem('monitor_user');
-    document.cookie = 'monitor_token=; Max-Age=0; path=/';
+    try { localStorage.removeItem('monitor_token'); localStorage.removeItem('monitor_user'); } catch {}
     router.push('/login');
   };
 
   useEffect(() => {
     const token = getToken();
-    if (!token) { router.push('/login'); return; }
-    setUser(getUser());
-    document.cookie = 'monitor_token=' + token + '; path=/; SameSite=Strict';
+    if (!token) {
+      router.push('/login');
+      return;
+    }
 
-    authFetch('http://localhost:4000/api/services').then(r => r.json()).then(setServices).catch(() => {});
-    authFetch('http://localhost:4000/api/monitor/alerts').then(r => r.json()).then(setAlerts).catch(() => {});
+    try {
+      const u = JSON.parse(localStorage.getItem('monitor_user') ?? 'null');
+      setUser(u);
+    } catch {}
 
-    const socket: Socket = io('http://localhost:4000');
+    setReady(true);
+
+    authFetch(API + '/api/services').then(r => r.json()).then(setServices).catch(() => {});
+    authFetch(API + '/api/monitor/alerts').then(r => r.json()).then(setAlerts).catch(() => {});
+
+    const socket: Socket = io(API);
     socket.on('connect', () => setConnected(true));
     socket.on('disconnect', () => setConnected(false));
     socket.on('monitor', (data: any) => {
@@ -96,21 +94,18 @@ export function useMonitor() {
   }, []);
 
   const addService = async (name: string, url: string, interval: number) => {
-    const res = await authFetch('http://localhost:4000/api/services', {
-      method: 'POST',
-      body: JSON.stringify({ name, url, interval }),
-    });
+    const res = await authFetch(API + '/api/services', { method: 'POST', body: JSON.stringify({ name, url, interval }) });
     return res.json();
   };
 
   const removeService = async (id: number) => {
-    await authFetch('http://localhost:4000/api/services/' + id, { method: 'DELETE' });
+    await authFetch(API + '/api/services/' + id, { method: 'DELETE' });
     setServices(prev => prev.filter(s => s.id !== id));
   };
 
   const checkNow = async () => {
-    await authFetch('http://localhost:4000/api/monitor/check', { method: 'POST' });
+    await authFetch(API + '/api/monitor/check', { method: 'POST' });
   };
 
-  return { services, alerts, connected, user, logout, addService, removeService, checkNow };
+  return { services, alerts, connected, user, ready, logout, addService, removeService, checkNow };
 }
