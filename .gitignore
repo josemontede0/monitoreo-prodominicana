@@ -15,6 +15,7 @@ build/
 
 # Data files
 apps/backend/services.json
+apps/backend/projects.json
 
 # Logs
 *.log

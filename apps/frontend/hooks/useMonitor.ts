@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useRouter } from 'next/navigation';
 
-const API = 'http://192.168.0.239:4000';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export interface MonitorService {
   id: number;

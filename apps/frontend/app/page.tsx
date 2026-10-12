@@ -3,7 +3,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useMonitor } from '../hooks/useMonitor';
-import { Plus, Trash2, RefreshCw, Wifi, WifiOff, CheckCircle, XCircle, Clock, Bell, ChevronRight, LogOut, User } from 'lucide-react';
+import { useProjects } from '../hooks/useProjects';
+import ProjectsTab from '../components/ProjectsTab';
+import { Plus, Trash2, RefreshCw, Wifi, WifiOff, CheckCircle, XCircle, Clock, Bell, FolderKanban, ChevronRight, LogOut, User } from 'lucide-react';
 
 export default function Home() {
   const { services, alerts, connected, user, logout, addService, removeService, checkNow } = useMonitor();
@@ -11,6 +13,10 @@ export default function Home() {
   const [form, setForm] = useState({ name: '', url: '', interval: 60 });
   const [activeTab, setActiveTab] = useState('services');
   const router = useRouter();
+  const projectsState = useProjects();
+  const proyectosActuales = projectsState.projects.filter(
+    p => p.status === 'en_curso' || p.status === 'en_pausa',
+  ).length;
 
   const total = services.length;
   const online = services.filter(s => s.status === 'up').length;
@@ -80,6 +86,9 @@ export default function Home() {
           <button onClick={() => setActiveTab('alerts')} className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 ${activeTab === 'alerts' ? 'bg-red-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
             <Bell className="w-4 h-4" /> Alertas {alerts.length > 0 && <span className="bg-red-500 text-white text-xs rounded-full px-2">{alerts.length}</span>}
           </button>
+          <button onClick={() => setActiveTab('projects')} className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 ${activeTab === 'projects' ? 'bg-red-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+            <FolderKanban className="w-4 h-4" /> Proyectos {proyectosActuales > 0 && <span className="bg-red-500 text-white text-xs rounded-full px-2">{proyectosActuales}</span>}
+          </button>
         </div>
 
         {activeTab === 'services' && (
@@ -141,6 +150,8 @@ export default function Home() {
             ))}
           </div>
         )}
+
+        {activeTab === 'projects' && <ProjectsTab services={services} {...projectsState} />}
       </main>
 
       {showForm && (

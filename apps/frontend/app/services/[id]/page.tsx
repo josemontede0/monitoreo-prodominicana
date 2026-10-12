@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, CheckCircle, XCircle, Clock, Activity, Shield, ShieldAlert, MapPin, Server, Edit2, Save, X } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
-const API = 'http://192.168.0.239:4000';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 interface CheckLog {
   timestamp: string;

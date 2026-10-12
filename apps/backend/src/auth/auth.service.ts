@@ -16,6 +16,15 @@ export class AuthService {
 
   constructor(private readonly jwt: JwtService) {}
 
+  listUsers() {
+    return Object.entries(LOCAL_USERS).map(([username, user]) => ({
+      username,
+      name: user.name,
+      email: user.email,
+      department: user.department,
+    }));
+  }
+
   async login(username: string, password: string) {
     try {
       const result = await this.ldapLogin(username, password);
