@@ -3,13 +3,14 @@ import { AuthService } from "./auth.service";
 describe("AuthService.listUsers", () => {
   const jwtStub = { sign: () => "token-de-prueba" } as any;
 
-  it("devuelve los cinco usuarios locales", () => {
+  it("devuelve los seis usuarios locales", () => {
     const service = new AuthService(jwtStub);
     const users = service.listUsers();
-    expect(users).toHaveLength(5);
+    expect(users).toHaveLength(6);
     expect(users.map((u) => u.username).sort()).toEqual([
       "admin",
       "edwinmercedes",
+      "gonzaloaponte",
       "josegarcia",
       "josemontedeoca",
       "wiltonpatrocino",

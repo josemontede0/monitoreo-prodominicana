@@ -8,6 +8,7 @@ const LOCAL_USERS: Record<string, { password: string; name: string; email: strin
   "edwinmercedes": { password: "Monitor2024!", name: "Edwin Mercedes", email: "edwinmercedes@prodominicana.gob.do", department: "TI" },
   "wiltonpatrocino": { password: "Monitor2024!", name: "Wilton Patrocino", email: "wiltonpatrocino@prodominicana.gob.do", department: "TI" },
   "josegarcia": { password: "Monitor2024!", name: "Jose Garcia", email: "josegarcia@prodominicana.gob.do", department: "TI" },
+  "gonzaloaponte": { password: "Monitor2024!", name: "Gonzalo Aponte", email: "gonzaloaponte@prodominicana.gob.do", department: "TI" },
 };
 
 @Injectable()
