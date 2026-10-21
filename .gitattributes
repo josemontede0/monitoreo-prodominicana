@@ -1,0 +1,8 @@
+# Git guarda siempre LF y cada copia de trabajo usa los finales de linea de su
+# sistema. Sin esta regla, en Windows el repositorio aparece con decenas de
+# archivos modificados sin un solo cambio real, y eso entierra los de verdad.
+* text=auto
+
+# Los scripts de shell llevan LF tambien en la copia de trabajo: con CRLF el
+# interprete falla en la primera linea.
+*.sh text eol=lf
