@@ -128,45 +128,252 @@ describe("ProjectsService.add, validacion", () => {
     expect(() => service.add({ ...entradaValida, status: "inventado" })).toThrow(BadRequestException);
   });
 
-  it("deja el estado en planificado cuando no se envia", () => {
+  it("deja el estado en iniciado cuando no se envia", () => {
     const service = makeService(undefined);
-    expect(service.add(entradaValida).status).toBe("planificado");
+    expect(service.add(entradaValida).status).toBe("iniciado");
   });
 
-  it("acepta los cinco estados validos", () => {
+  it("acepta los tres estados validos", () => {
     const service = makeService(undefined);
-    for (const status of ["planificado", "en_curso", "en_pausa", "terminado", "cancelado"]) {
+    for (const status of ["iniciado", "en_curso", "en_pausa"]) {
       expect(service.add({ ...entradaValida, status }).status).toBe(status);
     }
   });
 });
 
-describe("ProjectsService.add, progreso", () => {
-  it("deja el progreso en 0 cuando no se envia", () => {
+describe("ProjectsService, modulos y progreso derivado", () => {
+  it("crea el proyecto con los siete modulos por defecto, sin marcar", () => {
     const service = makeService(undefined);
-    expect(service.add(entradaValida).progress).toBe(0);
+    const creado = service.add(entradaValida);
+    expect(creado.modules).toHaveLength(7);
+    expect(creado.modules.every((m) => m.done === false)).toBe(true);
+    expect(creado.progress).toBe(0);
   });
 
-  it("recorta 150 a 100", () => {
+  it("acepta una lista propia de modulos", () => {
     const service = makeService(undefined);
-    expect(service.add({ ...entradaValida, progress: 150 }).progress).toBe(100);
+    const creado = service.add({
+      ...entradaValida,
+      modules: [{ name: "Analisis" }, { name: "Entrega", done: true }],
+    });
+    expect(creado.modules.map((m) => m.name)).toEqual(["Analisis", "Entrega"]);
+    expect(creado.progress).toBe(50);
   });
 
-  it("recorta -5 a 0", () => {
+  it("numera los modulos por posicion e ignora los ids enviados", () => {
     const service = makeService(undefined);
-    expect(service.add({ ...entradaValida, progress: -5 }).progress).toBe(0);
+    const creado = service.add({
+      ...entradaValida,
+      modules: [{ id: 99, name: "Uno" }, { id: 99, name: "Dos" }],
+    });
+    expect(creado.modules.map((m) => m.id)).toEqual([1, 2]);
   });
 
-  it("redondea 33.6 a 34", () => {
+  it("recorta los espacios del nombre del modulo", () => {
     const service = makeService(undefined);
-    expect(service.add({ ...entradaValida, progress: 33.6 }).progress).toBe(34);
+    const creado = service.add({ ...entradaValida, modules: [{ name: "  Pruebas  " }] });
+    expect(creado.modules[0].name).toBe("Pruebas");
   });
 
-  it("rechaza un progreso que no es un numero", () => {
+  it("mueve el progreso al marcar modulos en el update", () => {
     const service = makeService(undefined);
-    expect(() => service.add({ ...entradaValida, progress: "abc" })).toThrow(BadRequestException);
-    expect(() => service.add({ ...entradaValida, progress: {} })).toThrow(BadRequestException);
-    expect(() => service.add({ ...entradaValida, progress: null })).toThrow(BadRequestException);
+    const id = service.add(entradaValida).id;
+    const modules = service.getOne(id)!.modules.map((m, i) => ({ ...m, done: i < 3 }));
+    // 3 de 7 son 42.857, que se redondea a 43.
+    expect(service.update(id, { modules })?.progress).toBe(43);
+  });
+
+  it("llega a 100 cuando todos los modulos estan marcados", () => {
+    const service = makeService(undefined);
+    const id = service.add(entradaValida).id;
+    const modules = service.getOne(id)!.modules.map((m) => ({ ...m, done: true }));
+    expect(service.update(id, { modules })?.progress).toBe(100);
+  });
+
+  it("deja el progreso en 0 cuando el proyecto no tiene modulos", () => {
+    const service = makeService(undefined);
+    expect(service.add({ ...entradaValida, modules: [] }).progress).toBe(0);
+  });
+
+  it("ignora un progreso enviado en el cuerpo", () => {
+    const service = makeService(undefined);
+    expect(service.add({ ...entradaValida, progress: 80 }).progress).toBe(0);
+    const id = service.add(entradaValida).id;
+    expect(service.update(id, { progress: 80 })?.progress).toBe(0);
+  });
+
+  it("rechaza un modulo sin nombre", () => {
+    const service = makeService(undefined);
+    expect(() => service.add({ ...entradaValida, modules: [{ name: "   " }] })).toThrow(BadRequestException);
+    expect(() => service.add({ ...entradaValida, modules: [{ done: true }] })).toThrow(BadRequestException);
+  });
+
+  it("rechaza unos modulos que no son una lista", () => {
+    const service = makeService(undefined);
+    expect(() => service.add({ ...entradaValida, modules: "uno,dos" })).toThrow(BadRequestException);
+  });
+});
+
+describe("ProjectsService, fechas de inicio y finalizacion", () => {
+  it("nacen en null cuando no se envian", () => {
+    const service = makeService(undefined);
+    const creado = service.add(entradaValida);
+    expect(creado.startDate).toBeNull();
+    expect(creado.endDate).toBeNull();
+  });
+
+  it("guarda las dos fechas", () => {
+    const service = makeService(undefined);
+    const creado = service.add({
+      ...entradaValida,
+      startDate: "2026-10-01",
+      endDate: "2026-12-15",
+    });
+    expect(creado.startDate).toBe("2026-10-01");
+    expect(creado.endDate).toBe("2026-12-15");
+  });
+
+  it("acepta solo una de las dos", () => {
+    const service = makeService(undefined);
+    expect(service.add({ ...entradaValida, startDate: "2026-10-01" }).endDate).toBeNull();
+    expect(service.add({ ...entradaValida, endDate: "2026-12-15" }).startDate).toBeNull();
+  });
+
+  it("trata la cadena vacia y null como sin fecha", () => {
+    const service = makeService(undefined);
+    expect(service.add({ ...entradaValida, startDate: "" }).startDate).toBeNull();
+    expect(service.add({ ...entradaValida, startDate: null }).startDate).toBeNull();
+  });
+
+  it("recorta los espacios", () => {
+    const service = makeService(undefined);
+    expect(service.add({ ...entradaValida, startDate: "  2026-10-01  " }).startDate).toBe("2026-10-01");
+  });
+
+  it("rechaza un formato que no es AAAA-MM-DD", () => {
+    const service = makeService(undefined);
+    expect(() => service.add({ ...entradaValida, startDate: "01/10/2026" })).toThrow(BadRequestException);
+    expect(() => service.add({ ...entradaValida, startDate: "2026-10-01T00:00:00Z" })).toThrow(BadRequestException);
+    expect(() => service.add({ ...entradaValida, startDate: 20261001 })).toThrow(BadRequestException);
+  });
+
+  it("rechaza una fecha que no existe en el calendario", () => {
+    const service = makeService(undefined);
+    expect(() => service.add({ ...entradaValida, startDate: "2026-02-31" })).toThrow(BadRequestException);
+    expect(() => service.add({ ...entradaValida, startDate: "2026-13-01" })).toThrow(BadRequestException);
+  });
+
+  it("acepta el 29 de febrero de un ano bisiesto", () => {
+    const service = makeService(undefined);
+    expect(service.add({ ...entradaValida, startDate: "2028-02-29" }).startDate).toBe("2028-02-29");
+  });
+
+  it("rechaza una finalizacion anterior al inicio", () => {
+    const service = makeService(undefined);
+    expect(() =>
+      service.add({ ...entradaValida, startDate: "2026-12-15", endDate: "2026-10-01" }),
+    ).toThrow(BadRequestException);
+  });
+
+  it("acepta que empiecen y terminen el mismo dia", () => {
+    const service = makeService(undefined);
+    const creado = service.add({ ...entradaValida, startDate: "2026-10-01", endDate: "2026-10-01" });
+    expect(creado.endDate).toBe("2026-10-01");
+  });
+
+  it("no deja un alta invalida a medias", () => {
+    const service = makeService(undefined);
+    expect(() =>
+      service.add({ ...entradaValida, startDate: "2026-12-15", endDate: "2026-10-01" }),
+    ).toThrow(BadRequestException);
+    expect(service.getAll()).toEqual([]);
+  });
+
+  it("compara contra la fecha ya guardada cuando el update trae solo una", () => {
+    const service = makeService(undefined);
+    const id = service.add({ ...entradaValida, startDate: "2026-10-01", endDate: "2026-12-15" }).id;
+    expect(() => service.update(id, { endDate: "2026-09-01" })).toThrow(BadRequestException);
+    expect(service.getOne(id)?.endDate).toBe("2026-12-15");
+    expect(service.update(id, { endDate: "2026-11-01" })?.endDate).toBe("2026-11-01");
+  });
+
+  it("permite borrar una fecha en el update", () => {
+    const service = makeService(undefined);
+    const id = service.add({ ...entradaValida, startDate: "2026-10-01", endDate: "2026-12-15" }).id;
+    expect(service.update(id, { endDate: "" })?.endDate).toBeNull();
+  });
+});
+
+describe("ProjectsService, personas asignadas a un modulo", () => {
+  it("los modulos por defecto nacen sin asignar", () => {
+    const service = makeService(undefined);
+    expect(service.add(entradaValida).modules.every((m) => m.assignedTo.length === 0)).toBe(true);
+  });
+
+  it("asigna una persona", () => {
+    const service = makeService(undefined);
+    const creado = service.add({
+      ...entradaValida,
+      modules: [{ name: "Desarrollo", assignedTo: ["josegarcia"] }],
+    });
+    expect(creado.modules[0].assignedTo).toEqual(["josegarcia"]);
+  });
+
+  it("asigna varias personas al mismo modulo", () => {
+    const service = makeService(undefined);
+    const creado = service.add({
+      ...entradaValida,
+      modules: [{ name: "Desarrollo", assignedTo: ["josegarcia", "admin"] }],
+    });
+    expect(creado.modules[0].assignedTo).toEqual(["josegarcia", "admin"]);
+  });
+
+  it("no repite a la misma persona", () => {
+    const service = makeService(undefined);
+    const creado = service.add({
+      ...entradaValida,
+      modules: [{ name: "Desarrollo", assignedTo: ["admin", "admin", "admin"] }],
+    });
+    expect(creado.modules[0].assignedTo).toEqual(["admin"]);
+  });
+
+  it("descarta a quien no es un usuario conocido, sin lanzar", () => {
+    const service = makeService(undefined);
+    const creado = service.add({
+      ...entradaValida,
+      modules: [{ name: "Desarrollo", assignedTo: ["josegarcia", "nadie"] }],
+    });
+    expect(creado.modules[0].assignedTo).toEqual(["josegarcia"]);
+  });
+
+  it("deja la lista vacia cuando assignedTo no es un arreglo o no se envia", () => {
+    const service = makeService(undefined);
+    expect(service.add({ ...entradaValida, modules: [{ name: "Uno" }] }).modules[0].assignedTo).toEqual([]);
+    expect(
+      service.add({ ...entradaValida, modules: [{ name: "Uno", assignedTo: "josegarcia" }] }).modules[0].assignedTo,
+    ).toEqual([]);
+  });
+
+  it("cada modulo lleva su propia lista", () => {
+    const service = makeService(undefined);
+    const creado = service.add({
+      ...entradaValida,
+      modules: [
+        { name: "Diseno", assignedTo: ["josegarcia"] },
+        { name: "Pruebas", assignedTo: ["admin"] },
+        { name: "Despliegue" },
+      ],
+    });
+    expect(creado.modules.map((m) => m.assignedTo)).toEqual([["josegarcia"], ["admin"], []]);
+  });
+
+  it("cambia las personas de un modulo en el update", () => {
+    const service = makeService(undefined);
+    const id = service.add({ ...entradaValida, modules: [{ name: "Diseno", assignedTo: ["josegarcia"] }] }).id;
+    const actualizado = service.update(id, {
+      modules: [{ name: "Diseno", assignedTo: ["admin"] }],
+    });
+    expect(actualizado?.modules[0].assignedTo).toEqual(["admin"]);
   });
 });
 
@@ -250,21 +457,21 @@ describe("ProjectsService.add, campos derivados", () => {
 describe("ProjectsService.update", () => {
   function conUnProyecto() {
     const service = makeService(undefined);
-    const creado = service.add({ ...entradaValida, status: "en_curso", progress: 20 });
+    const creado = service.add({ ...entradaValida, status: "en_curso" });
     return { service, id: creado.id };
   }
 
   it("devuelve null cuando el id no existe", () => {
     const { service } = conUnProyecto();
-    expect(service.update(999, { progress: 50 })).toBeNull();
+    expect(service.update(999, { name: "Otro nombre" })).toBeNull();
   });
 
   it("solo cambia los campos presentes", () => {
     const { service, id } = conUnProyecto();
-    const actualizado = service.update(id, { progress: 70 });
-    expect(actualizado?.progress).toBe(70);
+    const actualizado = service.update(id, { status: "en_pausa" });
+    expect(actualizado?.status).toBe("en_pausa");
     expect(actualizado?.name).toBe("Rediseno de ProtalentHub");
-    expect(actualizado?.status).toBe("en_curso");
+    expect(actualizado?.modules).toHaveLength(7);
   });
 
   it("rechaza un responsable desconocido en el update", () => {
@@ -282,20 +489,17 @@ describe("ProjectsService.update", () => {
     expect(() => service.update(id, { name: "   " })).toThrow(BadRequestException);
   });
 
-  it("rechaza un progreso no numerico en el update", () => {
+  it("rechaza unos modulos invalidos en el update", () => {
     const { service, id } = conUnProyecto();
-    expect(() => service.update(id, { progress: "abc" })).toThrow(BadRequestException);
-  });
-
-  it("recorta el progreso fuera de rango en el update", () => {
-    const { service, id } = conUnProyecto();
-    expect(service.update(id, { progress: 500 })?.progress).toBe(100);
+    expect(() => service.update(id, { modules: [{ name: "" }] })).toThrow(BadRequestException);
   });
 
   it("no cambia nada cuando la validacion falla", () => {
     const { service, id } = conUnProyecto();
-    expect(() => service.update(id, { progress: 90, status: "inventado" })).toThrow(BadRequestException);
-    expect(service.getOne(id)?.progress).toBe(20);
+    const modules = service.getOne(id)!.modules.map((m) => ({ ...m, done: true }));
+    expect(() => service.update(id, { modules, status: "inventado" })).toThrow(BadRequestException);
+    expect(service.getOne(id)?.progress).toBe(0);
+    expect(service.getOne(id)?.modules.every((m) => m.done === false)).toBe(true);
   });
 
   it("no permite cambiar el id ni createdAt", () => {
@@ -406,7 +610,8 @@ describe("ProjectsService, el guardado fallido no deja memoria y disco en desacu
 
   it("deshace la edicion cuando el guardado falla", () => {
     const { service, creado } = conFalloAlGuardar();
-    expect(() => service.update(creado.id, { progress: 99 })).toThrow("ENOSPC");
+    const modules = service.getOne(creado.id)!.modules.map((m) => ({ ...m, done: true }));
+    expect(() => service.update(creado.id, { modules })).toThrow("ENOSPC");
     expect(service.getOne(creado.id)?.progress).toBe(0);
   });
 });

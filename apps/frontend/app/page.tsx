@@ -1,22 +1,38 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { useMonitor } from '../hooks/useMonitor';
 import { useProjects } from '../hooks/useProjects';
 import ProjectsTab from '../components/ProjectsTab';
+import ProjectsDashboard from '../components/ProjectsDashboard';
 import { Plus, Trash2, RefreshCw, Wifi, WifiOff, CheckCircle, XCircle, Clock, Bell, FolderKanban, ChevronRight, LogOut, User } from 'lucide-react';
 
+// useSearchParams obliga a envolver la pagina en un limite de Suspense; sin el,
+// next build falla al intentar prerenderizarla.
 export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <Panel />
+    </Suspense>
+  );
+}
+
+function Panel() {
   const { services, alerts, connected, user, logout, addService, removeService, checkNow } = useMonitor();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', url: '', interval: 60 });
-  const [activeTab, setActiveTab] = useState('services');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // La pestana vive en la URL y no en el estado: asi volver desde el detalle de un
+  // proyecto, recargar la pagina o usar el boton atras del navegador caen todos en
+  // la pestana correcta, sin un segundo sitio donde guardar lo mismo.
+  const tabParam = searchParams.get('tab');
+  const activeTab = tabParam === 'alerts' || tabParam === 'projects' ? tabParam : 'services';
+  const setActiveTab = (tab: string) =>
+    router.replace(tab === 'services' ? '/' : '/?tab=' + tab, { scroll: false });
   const projectsState = useProjects();
-  const proyectosActuales = projectsState.projects.filter(
-    p => p.status === 'en_curso' || p.status === 'en_pausa',
-  ).length;
+  const totalProyectos = projectsState.projects.length;
 
   const total = services.length;
   const online = services.filter(s => s.status === 'up').length;
@@ -67,19 +83,25 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'Total servicios', value: total, color: 'text-white' },
-            { label: 'En linea', value: online, color: 'text-green-400' },
-            { label: 'Caidos', value: caidos, color: 'text-red-400' },
-            { label: 'Uptime promedio', value: avgUptime + '%', color: 'text-blue-400' },
-          ].map((m, i) => (
-            <div key={i} className="bg-gray-800 rounded-xl p-6">
-              <p className="text-gray-400 text-sm mb-1">{m.label}</p>
-              <p className={`text-3xl font-bold ${m.color}`}>{m.value}</p>
-            </div>
-          ))}
-        </div>
+        {/* La cabecera resume la pestana que se esta viendo: en Proyectos no sirven
+            de nada las cifras de uptime. */}
+        {activeTab === 'projects' ? (
+          <ProjectsDashboard projects={projectsState.projects} />
+        ) : (
+          <div className="grid grid-cols-4 gap-4 mb-8">
+            {[
+              { label: 'Total servicios', value: total, color: 'text-white' },
+              { label: 'En linea', value: online, color: 'text-green-400' },
+              { label: 'Caidos', value: caidos, color: 'text-red-400' },
+              { label: 'Uptime promedio', value: avgUptime + '%', color: 'text-blue-400' },
+            ].map((m, i) => (
+              <div key={i} className="bg-gray-800 rounded-xl p-6">
+                <p className="text-gray-400 text-sm mb-1">{m.label}</p>
+                <p className={`text-3xl font-bold ${m.color}`}>{m.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="flex gap-2 mb-6">
           <button onClick={() => setActiveTab('services')} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'services' ? 'bg-red-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>Servicios</button>
@@ -87,7 +109,7 @@ export default function Home() {
             <Bell className="w-4 h-4" /> Alertas {alerts.length > 0 && <span className="bg-red-500 text-white text-xs rounded-full px-2">{alerts.length}</span>}
           </button>
           <button onClick={() => setActiveTab('projects')} className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 ${activeTab === 'projects' ? 'bg-red-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
-            <FolderKanban className="w-4 h-4" /> Proyectos {proyectosActuales > 0 && <span className="bg-red-500 text-white text-xs rounded-full px-2">{proyectosActuales}</span>}
+            <FolderKanban className="w-4 h-4" /> Proyectos {totalProyectos > 0 && <span className="bg-red-500 text-white text-xs rounded-full px-2">{totalProyectos}</span>}
           </button>
         </div>
 
