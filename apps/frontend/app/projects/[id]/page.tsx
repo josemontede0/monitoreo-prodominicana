@@ -6,6 +6,9 @@ import {
   CheckCircle2,
   Circle,
   Clock,
+  Copy,
+  Eye,
+  EyeOff,
   FolderKanban,
   RefreshCw,
   XCircle,
@@ -30,6 +33,21 @@ function getToken() {
   }
 }
 
+// Las claves quedan a la vista y los valores tapados hasta que se pidan: esta pantalla
+// se abre a menudo en reunion o compartiendo escritorio. No es un control de acceso,
+// solo evita que las credenciales se lean de reojo.
+function ocultarValores(env: string) {
+  return env
+    .split('\n')
+    .map(linea => {
+      const corte = linea.indexOf('=');
+      if (corte === -1 || linea.trimStart().startsWith('#')) return linea;
+      const largo = Math.min(linea.length - corte - 1, 12);
+      return linea.slice(0, corte + 1) + '*'.repeat(largo);
+    })
+    .join('\n');
+}
+
 function fecha(iso: string) {
   return new Date(iso).toLocaleString('es-DO', {
     day: '2-digit',
@@ -48,6 +66,8 @@ export default function ProjectDetail() {
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [noExiste, setNoExiste] = useState(false);
+  const [verEnv, setVerEnv] = useState(false);
+  const [copiado, setCopiado] = useState(false);
 
   const cargar = useCallback(async () => {
     const token = getToken();
@@ -90,6 +110,17 @@ export default function ProjectDetail() {
 
   const nombreUsuario = (username: string) =>
     users.find(u => u.username === username)?.name ?? username;
+
+  const copiarEnv = async (env: string) => {
+    try {
+      await navigator.clipboard.writeText(env);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      // Sin permiso de portapapeles (o sin HTTPS) no hay nada que avisar: el .env
+      // esta a la vista y se puede seleccionar a mano.
+    }
+  };
 
   if (loading) {
     return (
@@ -210,6 +241,39 @@ export default function ProjectDetail() {
           <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 mb-6">
             <p className="text-gray-400 text-xs mb-2">Descripcion</p>
             <p className="text-sm text-gray-200 whitespace-pre-line">{project.description}</p>
+          </div>
+        )}
+
+        {project.env && (
+          <div className="bg-gray-900 rounded-xl border border-gray-800 mb-6">
+            <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-white">Variables de entorno (.env)</h2>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => copiarEnv(project.env!)}
+                  className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg text-xs transition"
+                >
+                  <Copy className="w-3.5 h-3.5" /> {copiado ? 'Copiado' : 'Copiar'}
+                </button>
+                <button
+                  onClick={() => setVerEnv(v => !v)}
+                  className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg text-xs transition"
+                >
+                  {verEnv ? (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5" /> Ocultar valores
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3.5 h-3.5" /> Mostrar valores
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+            <pre className="px-6 py-4 text-xs font-mono text-gray-200 whitespace-pre-wrap break-all overflow-x-auto">
+              {verEnv ? project.env : ocultarValores(project.env)}
+            </pre>
           </div>
         )}
 

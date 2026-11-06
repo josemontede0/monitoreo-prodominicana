@@ -30,6 +30,7 @@ const DEFAULT_MODULE_NAMES = [
 const EMPTY_FORM: ProjectInput = {
   name: '',
   description: '',
+  env: '',
   serviceIds: [],
   assignedTo: '',
   status: 'iniciado',
@@ -95,6 +96,7 @@ export default function ProjectsTab({
     setForm({
       name: project.name,
       description: project.description ?? '',
+      env: project.env ?? '',
       serviceIds: project.serviceIds,
       assignedTo: project.assignedTo,
       status: project.status,
@@ -490,6 +492,23 @@ export default function ProjectsTab({
                 >
                   <Plus className="w-3 h-3" /> Agregar modulo
                 </button>
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400">Variables de entorno (.env)</label>
+                {/* Texto libre a proposito: el contenido se archiva tal cual se pega,
+                    sin validar la sintaxis ni expandir nada. */}
+                <textarea
+                  className="mt-1 w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-xs font-mono outline-none border border-gray-700 focus:border-red-500 resize-y"
+                  rows={6}
+                  spellCheck={false}
+                  placeholder={'PORT=4000\nSMTP_HOST=10.25.1.68'}
+                  value={form.env}
+                  onChange={e => setForm(p => ({ ...p, env: e.target.value }))}
+                />
+                <p className="text-xs text-gray-600 mt-1">
+                  Opcional. Una variable por linea; se guarda tal cual se pega.
+                </p>
               </div>
 
               <div>

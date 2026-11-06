@@ -13,6 +13,10 @@ import {
 
 const DB_FILE = path.join(process.cwd(), "projects.json");
 
+// Tope del .env de un proyecto. Un archivo de verdad no se acerca, pero projects.json
+// se reescribe completo en cada guardado y un pegado accidental lo dejaria inmanejable.
+const MAX_ENV_LENGTH = 20000;
+
 // Los siete modulos con los que nace todo proyecto nuevo.
 const DEFAULT_MODULE_NAMES = [
   "Levantamiento de requerimientos",
@@ -143,6 +147,7 @@ export class ProjectsService implements OnModuleInit {
       id: this.nextId(),
       name: this.cleanName(input.name),
       description: this.cleanDescription(input.description),
+      env: this.cleanEnv(input.env),
       serviceIds: this.cleanServiceIds(input.serviceIds),
       assignedTo: this.cleanAssignedTo(input.assignedTo),
       status: input.status === undefined ? "iniciado" : this.cleanStatus(input.status),
@@ -169,6 +174,7 @@ export class ProjectsService implements OnModuleInit {
     const changes: Partial<Project> = {};
     if (input.name !== undefined) changes.name = this.cleanName(input.name);
     if (input.description !== undefined) changes.description = this.cleanDescription(input.description);
+    if (input.env !== undefined) changes.env = this.cleanEnv(input.env);
     if (input.serviceIds !== undefined) changes.serviceIds = this.cleanServiceIds(input.serviceIds);
     if (input.assignedTo !== undefined) changes.assignedTo = this.cleanAssignedTo(input.assignedTo);
     if (input.status !== undefined) changes.status = this.cleanStatus(input.status);
@@ -220,6 +226,21 @@ export class ProjectsService implements OnModuleInit {
     if (typeof value !== "string") return null;
     const description = value.trim();
     return description === "" ? null : description;
+  }
+
+  // El .env se guarda tal cual se pega, con dos salvedades: los finales de linea se
+  // normalizan a LF para que no dependa del sistema de quien lo copio, y el tamano se
+  // limita. Ni se valida la sintaxis ni se parsea: aqui solo se archiva el texto.
+  private cleanEnv(value: unknown): string | null {
+    if (typeof value !== "string") return null;
+    const env = value.replace(/\r\n?/g, "\n").trim();
+    if (env === "") return null;
+    if (env.length > MAX_ENV_LENGTH) {
+      throw new BadRequestException(
+        "El .env no puede pasar de " + MAX_ENV_LENGTH + " caracteres",
+      );
+    }
+    return env;
   }
 
   private cleanDate(value: unknown): string | null {

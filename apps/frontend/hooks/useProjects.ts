@@ -67,6 +67,8 @@ export interface Project {
   id: number;
   name: string;
   description: string | null;
+  // El .env del proyecto tal cual se guardo. null = sin registrar.
+  env: string | null;
   serviceIds: number[];
   assignedTo: string;
   status: ProjectStatus;
@@ -89,6 +91,8 @@ export interface AssignableUser {
 export interface ProjectInput {
   name: string;
   description: string;
+  // Cadena vacia = sin .env registrado.
+  env: string;
   serviceIds: number[];
   assignedTo: string;
   status: ProjectStatus;

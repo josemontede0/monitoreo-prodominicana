@@ -14,6 +14,8 @@ export interface Project {
   id: number;
   name: string;
   description: string | null;
+  // Contenido del .env del proyecto, tal cual se pego. null = sin registrar.
+  env: string | null;
   serviceIds: number[];
   assignedTo: string;
   status: ProjectStatus;
@@ -29,6 +31,7 @@ export interface Project {
 export interface ProjectInput {
   name?: unknown;
   description?: unknown;
+  env?: unknown;
   serviceIds?: unknown;
   assignedTo?: unknown;
   status?: unknown;
